@@ -29,6 +29,12 @@ class _HomepageState extends State<Homepage> {
   double _monthlyBudget = 5000.0;
   late final Stream<List<Map<String, dynamic>>> _transactionsStream;
 bool _isPieChartVisible=false;
+String _searchQuery="";
+void runFilter(String enteredKeyword){
+  setState(() {
+    _searchQuery=enteredKeyword;
+  });}
+
   @override
   void initState() {
     super.initState();
@@ -350,9 +356,8 @@ bool _isPieChartVisible=false;
         if(data==null || data.isEmpty){
           return const Center(child: Text('No transactions found.'));
         }
-        final transactions = data.map((e) {
+        final allTransactions = data.map((e) {
           final tx = Transaction.fromMap(e);
-          // Convert to local time immediately so Chart and List use local date
           return Transaction(
             id: tx.id,
             title: tx.title,
@@ -361,6 +366,14 @@ bool _isPieChartVisible=false;
             date: tx.date.toLocal(),
             userId: tx.userId,
           );
+        }).toList();
+        final transactions= allTransactions ;
+        final Filteredtransactions= allTransactions.where((tx){
+          if(_searchQuery.isEmpty){
+            return true;
+          }
+          return tx.title.toLowerCase().contains(_searchQuery.toLowerCase()) || tx.category.toLowerCase().contains(_searchQuery.toLowerCase());
+
         }).toList();
         final currentMonthSpending = transactions
             .where((tx) =>
@@ -451,6 +464,18 @@ bool _isPieChartVisible=false;
               ),
             ),
             const SizedBox(height: 10),
+            Padding(padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: TextField(
+              onChanged: (value){
+                runFilter(value);
+              },
+              decoration: const InputDecoration(
+                labelText: 'Search Transactions',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
+              ),
+            ),),
+            const SizedBox(height: 10),
             const Text(
               'Recent Transactions',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -458,9 +483,9 @@ bool _isPieChartVisible=false;
             ListView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                itemCount: transactions.length,
+                itemCount: Filteredtransactions.length,
                 itemBuilder: (ctx,index){
-                  final tx=transactions[index];
+                  final tx=Filteredtransactions[index];
                   return ListTile(
                     title: Text(tx.title),
                     subtitle: Text(DateFormat.yMMMd().format(tx.date)),
