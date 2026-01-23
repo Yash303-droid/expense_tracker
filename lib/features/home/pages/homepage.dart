@@ -1,4 +1,5 @@
 import 'package:expense_tracker/features/home/pages/new_transaction.dart';
+import 'package:expense_tracker/features/home/widgets/expense_heatmap.dart';
 import 'package:expense_tracker/utils/category_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:expense_tracker/models/transaction.dart';
@@ -463,6 +464,8 @@ void runFilter(String enteredKeyword){
                 ),
               ),
             ),
+            const SizedBox(height: 10),
+            if(allTransactions.isNotEmpty) ExpenseHeatmap(transactions: allTransactions),
             const SizedBox(height: 10),
             Padding(padding: const EdgeInsets.symmetric(horizontal: 16),
             child: TextField(
