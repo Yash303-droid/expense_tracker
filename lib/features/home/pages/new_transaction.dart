@@ -1,3 +1,4 @@
+import 'package:expense_tracker/utils/voice_handler.dart';
 import 'package:flutter/material.dart';
 
 class NewTransactionForm extends StatefulWidget {
@@ -18,10 +19,38 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
   // Input Controllers (Text read karne ke liye)
   final titleController = TextEditingController();
   final amountController = TextEditingController();
+  final VoiceHandler _voiceHandler = VoiceHandler();
+bool _isListening = false; // Button ka color badalne ke liye
+
+@override
+
+void _listen() {
+  if (!_isListening) {
+    // Start Listening
+    setState(() => _isListening = true);
+    _voiceHandler.startListening((text) {
+      // Jaise hi kuch sunayi de, process karo
+      final data = _voiceHandler.parseCommand(text);
+
+      setState(() {
+        // Form Fields Auto-Fill karo!
+        titleController.text = data['title'];
+        amountController.text = data['amount'] == 0.0 ? '' : data['amount'].toStringAsFixed(0);
+        selectedCategory = data['category'];
+        // _isListening = false; // Auto-stop mat karo, user ko bolne do
+      });
+    });
+  } else {
+    // Stop Listening
+    _voiceHandler.stopListening();
+    setState(() => _isListening = false);
+  }
+}
 
   @override
   void initState() {
     super.initState();
+    _voiceHandler.initSpeech();
     if (widget.initialTitle != null) {
       titleController.text = widget.initialTitle!;
     }
@@ -186,18 +215,46 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
             const SizedBox(height: 24),
             
             // Submit Button
-            ElevatedButton(
-              onPressed: _submitData,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.purple,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                elevation: 2,
-              ),
-              child: const Text(
-                'Add Transaction',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            Container(
+              decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), color: Colors.purple), // Background Color: Colors.transparent,
+              child: Row(
+                
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _submitData,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.purple,
+                        foregroundColor: Colors.white,
+                        
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 2,
+                      ),
+                      child: const Text(
+                        'Add Transaction',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child:GestureDetector(
+                      onTap: _listen,
+                      child: CircleAvatar(
+                        backgroundColor: _isListening ? Colors.red : Colors.purple,
+                        radius: 24,
+                        child: Icon(
+                          _isListening ? Icons.mic : Icons.mic_none,
+                          color: Colors.white,
+                        ),
+                      ),
+                    )
+                  ),
+                ],
               ),
             ),
           ],
