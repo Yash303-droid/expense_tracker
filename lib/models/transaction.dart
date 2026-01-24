@@ -20,8 +20,10 @@ class Transaction {
       id: map['id'] is int ? map['id'] : 0,
       title: map['title']?.toString() ?? 'No Title',
       amount: (map['amount'] is num) ? (map['amount'] as num).toDouble() : 0.0,
-      date: map['created_at'] != null 
-          ? DateTime.parse(map['created_at'].toString()).toLocal()
+      // Use tryParse for safety. If the date string from the database is invalid,
+      // this will prevent the app from crashing by falling back to the current time.
+      date: map['created_at'] != null
+          ? (DateTime.tryParse(map['created_at'].toString())?.toLocal() ?? DateTime.now())
           : DateTime.now(),
       userId: map['user_id']?.toString() ?? '',
       

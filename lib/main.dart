@@ -4,34 +4,54 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:expense_tracker/features/home/pages/homepage.dart';
 import 'package:expense_tracker/features/auth/modern_login_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  await Supabase.initialize(
-     url: 'https://unrvcyleaklgziglwjif.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVucnZjeWxlYWtsZ3ppZ2x3amlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU5MDQ0NDgsImV4cCI6MjA4MTQ4MDQ0OH0.MRa_6qBrLIkZ2QDDhpa2Ekwx8N993KhhsiyWS8cA9L0',
-  );
 
-  runApp(const MyApp());
+  final prefs = await SharedPreferences.getInstance();
+  final isDarkMode = prefs.getBool('isDark') ?? false;
+
+  try {
+    await Supabase.initialize(
+      url: 'https://unrvcyleaklgziglwjif.supabase.co',
+      anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVucnZjeWxlYWtsZ3ppZ2x3amlmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU5MDQ0NDgsImV4cCI6MjA4MTQ4MDQ0OH0.MRa_6qBrLIkZ2QDDhpa2Ekwx8N993KhhsiyWS8cA9L0',
+    );
+    runApp(MyApp(isDarkMode: isDarkMode));
+  } catch (e) {
+    // If Supabase initialization fails, show an error screen instead of crashing.
+    runApp(MaterialApp(
+      home: Scaffold(
+        body: Center(child: Text('App failed to initialize: $e')),
+      ),
+    ));
+  }
 }
 
 class MyApp extends StatefulWidget {
-  const MyApp({super.key});
+  final bool isDarkMode;
+  const MyApp({super.key, required this.isDarkMode});
 
   @override
   State<MyApp> createState() => _MyAppState();
 }
 
 class _MyAppState extends State<MyApp> {
-  // State variable: Default Light Mode
-  bool _isDarkMode = false;
+  late bool _isDarkMode;
+
+  @override
+  void initState() {
+    super.initState();
+    _isDarkMode = widget.isDarkMode;
+  }
 
   // Toggle Function: Switch dabane par ye chalega
-  void _toggleTheme() {
+  void _toggleTheme() async {
     setState(() {
       _isDarkMode = !_isDarkMode;
     });
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isDark', _isDarkMode);
   }
 
   @override
@@ -44,37 +64,41 @@ class _MyAppState extends State<MyApp> {
       themeMode: _isDarkMode ? ThemeMode.dark : ThemeMode.light,
       
       // A. Light Theme Settings
+      // Using ColorScheme.fromSeed is the modern Material 3 approach.
+      // It generates a full, consistent, and stable color palette.
       theme: ThemeData(
-        brightness: Brightness.light,
-        primarySwatch: Colors.purple,
         useMaterial3: true,
-        scaffoldBackgroundColor: Colors.white,
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.purple, 
-          foregroundColor: Colors.white
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.purple,
+          brightness: Brightness.light,
         ),
       ),
       
       // B. Dark Theme Settings
       darkTheme: ThemeData(
-        brightness: Brightness.dark,
-        primarySwatch: Colors.purple,
-        primaryColor: Colors.lightBlueAccent,
         useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFF121212), // Deep Black/Grey
-        appBarTheme: AppBarTheme(
-          backgroundColor: Colors.grey[900], 
-          foregroundColor: Colors.white
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.purple,
+          brightness: Brightness.dark,
         ),
-        
       ),
 
       // 3. Pass Toggle Function to HomePage
       home: StreamBuilder<AuthState>(
         stream: Supabase.instance.client.auth.onAuthStateChange,
         builder: (context, snapshot) {
-          final session = Supabase.instance.client.auth.currentSession;
-          if (session != null) {
+          // Handle loading state
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          }
+          // Handle error state
+          if (snapshot.hasError) {
+            return Scaffold(body: Center(child: Text('Authentication Error: ${snapshot.error}')));
+          }
+
+          // Use session data from the stream's snapshot
+          final session = snapshot.data?.session;
+          if (session != null) { // User is logged in
             return Homepage(toggleTheme: _toggleTheme, isDark: _isDarkMode);
           }
           return const ModernLoginScreen();

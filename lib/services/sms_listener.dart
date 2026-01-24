@@ -58,7 +58,7 @@ class _SmsListenerState extends State<SmsListener> {
                 final amount = _extractAmount(msg.body ?? '');
                 
                 return ListTile(
-                  leading: const Icon(Icons.payment, color: Colors.purple),
+                  leading: Icon(Icons.payment, color: Theme.of(context).primaryColor),
                   title: Text(msg.sender ?? 'Unknown'),
                   subtitle: Text(
                     msg.body ?? '',

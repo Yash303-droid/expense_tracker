@@ -189,7 +189,7 @@ void _listen() {
                     child: Container(
                       padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
                       decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey),
+                        border: Border.all(color: Theme.of(context).dividerColor),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
@@ -204,7 +204,7 @@ void _listen() {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          const Icon(Icons.calendar_today, size: 20, color: Colors.purple),
+                          Icon(Icons.calendar_today, size: 20, color: Theme.of(context).primaryColor),
                         ],
                       ),
                     ),
@@ -216,7 +216,7 @@ void _listen() {
             
             // Submit Button
             Container(
-              decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), color: Colors.purple), // Background Color: Colors.transparent,
+              decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), color: Theme.of(context).primaryColor), // Background Color: Colors.transparent,
               child: Row(
                 
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -226,7 +226,7 @@ void _listen() {
                     child: ElevatedButton(
                       onPressed: _submitData,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.purple,
+                        backgroundColor: Theme.of(context).primaryColor,
                         foregroundColor: Colors.white,
                         
                         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -245,7 +245,7 @@ void _listen() {
                     child:GestureDetector(
                       onTap: _listen,
                       child: CircleAvatar(
-                        backgroundColor: _isListening ? Colors.red : Colors.purple,
+                        backgroundColor: _isListening ? Colors.red : Theme.of(context).primaryColor,
                         radius: 24,
                         child: Icon(
                           _isListening ? Icons.mic : Icons.mic_none,

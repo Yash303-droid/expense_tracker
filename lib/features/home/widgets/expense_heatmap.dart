@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_heatmap_calendar/flutter_heatmap_calendar.dart';
 import '../../../models/transaction.dart';
+import 'package:intl/intl.dart';
 
 class ExpenseHeatmap extends StatelessWidget {
   final List<Transaction> transactions;
@@ -9,69 +10,49 @@ class ExpenseHeatmap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 1. Data Conversion
-    Map<DateTime, int> dataset = {};
-    for (var tx in transactions) {
-      final date = DateTime(tx.date.year, tx.date.month, tx.date.day);
-      if (dataset.containsKey(date)) {
-        dataset[date] = dataset[date]! + tx.amount.toInt();
-      } else {
-        dataset[date] = tx.amount.toInt();
-      }
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    if (transactions.isEmpty) {
+      return const Center(
+        child: Text("No transaction data for heatmap.", style: TextStyle(color: Colors.grey)),
+      );
     }
 
-    return Padding(
-      padding: const EdgeInsets.all(20.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "Spending Intensity 🗓️",
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 15),
+    // 1. Process transaction data into a format the heatmap can understand.
+    final Map<DateTime, int> datasets = {};
+    for (var tx in transactions) {
+      // Normalize the date to remove the time part, grouping all transactions on the same day.
+      final date = DateTime(tx.date.year, tx.date.month, tx.date.day);
+      datasets.update(date, (value) => value + tx.amount.toInt(), ifAbsent: () => tx.amount.toInt());
+    }
 
-         
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 10),
-            decoration: BoxDecoration(
-              color: Colors.white, // Background White
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.grey.shade200), // Halka Border
-            ),
-            child: HeatMap(
-              datasets: dataset,
-              startDate: DateTime.now().subtract(const Duration(days: 100)), // Pichle 3+ Mahine
-              endDate: DateTime.now(),
-              
-              
-              scrollable: true,       
-              colorMode: ColorMode.color, 
-              showText: false,        
-              size: 18,               
-              margin: const EdgeInsets.all(3), 
-              borderRadius: 2,        
-              
-              
-              colorsets: {
-                1: Colors.red.shade100,    // Level 1: Chhota Kharcha (< ₹500)
-                500: Colors.red.shade300,  // Level 2: Medium Kharcha
-                1000: Colors.red.shade500, // Level 3: Bada Kharcha
-                2000: Colors.red.shade700, // Level 4: Bhari Kharcha
-                5000: Colors.red.shade900, // Level 5: Bank Khali
-              },
-              
-              defaultColor: Colors.grey.shade200, // No Expense (Empty Box)
-              
-              onClick: (value) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text("Spent on ${value.day}/${value.month}: ₹${dataset[value] ?? 0}")),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
+    return HeatMapCalendar(
+      datasets: datasets,
+      // 2. Define a vibrant, theme-aware color palette for spending intensity.
+      colorsets: {
+        1: colorScheme.primary.withOpacity(0.2),
+        100: colorScheme.primary.withOpacity(0.4),
+        500: colorScheme.primary.withOpacity(0.6),
+        1000: colorScheme.primary.withOpacity(0.8),
+        2000: colorScheme.primary,
+      },
+      // 3. Style the widget for a polished look.
+      defaultColor: isDarkMode ? Colors.grey[850] : Colors.grey[200],
+      textColor: isDarkMode ? Colors.white70 : Colors.black87,
+      monthFontSize: 16,
+      weekFontSize: 12,
+      weekTextColor: Colors.grey[500],
+      borderRadius: 8,
+      margin: const EdgeInsets.all(4),
+      size: 32,
+      // 4. Add interactive tooltips on tap.
+      onClick: (date) {
+        final amount = datasets[date];
+        if (amount != null && amount > 0) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${DateFormat.yMMMd().format(date)}: ₹$amount')));
+        }
+      },
     );
   }
 }
