@@ -101,7 +101,7 @@ class _ModernLoginScreenState extends State<ModernLoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Image.asset(
-                  'assets/images/logo.png',
+                  'assets/images/icon.png',
                   height: 80,
                   errorBuilder: (context, error, stackTrace) {
                     return Icon(Icons.account_balance_wallet, size: 80, color: primaryColor);
@@ -109,7 +109,7 @@ class _ModernLoginScreenState extends State<ModernLoginScreen> {
                 ),
                 const SizedBox(height: 24),
                 Text(
-                  'Pocket Tracker',
+                  'FinWiz',
                   style: theme.textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: isDark ? Colors.white : Colors.black87,

@@ -1,18 +1,28 @@
-import 'package:expense_tracker/features/home/pages/new_transaction.dart';
-import 'package:expense_tracker/features/home/widgets/expense_heatmap.dart';
-import 'package:expense_tracker/utils/category_icons.dart';
 import 'package:expense_tracker/utils/voice_handler.dart';
 import 'package:flutter/material.dart';
-import 'package:expense_tracker/models/transaction.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
+
+// --- WIDGET IMPORTS ---
+import 'package:expense_tracker/features/home/pages/new_transaction.dart';
+import 'package:expense_tracker/features/home/widgets/expense_heatmap.dart';
 import 'package:expense_tracker/features/home/widgets/chart.dart';
-import 'package:expense_tracker/services/sms_service.dart';
-// Ensure this exists
 import 'package:expense_tracker/features/home/widgets/category_pie_chart.dart';
 
+// --- UTILS & SERVICES IMPORTS ---
+import 'package:expense_tracker/utils/category_icons.dart';
+import 'package:expense_tracker/services/sms_service.dart';
+import 'package:expense_tracker/models/transaction.dart';
+
 class Homepage extends StatefulWidget {
-  const Homepage({super.key, required bool isDark, required void Function() toggleTheme});
+  final bool isDark;
+  final VoidCallback toggleTheme; // Using VoidCallback is cleaner for void Function()
+
+  const Homepage({
+    super.key, 
+    required this.isDark, 
+    required this.toggleTheme
+  });
 
   @override
   State<Homepage> createState() => _HomepageState();
@@ -26,12 +36,11 @@ class _HomepageState extends State<Homepage> {
   // --- Voice Variables ---
   final VoiceHandler _voiceHandler = VoiceHandler();
   bool _isListening = false;
-  String _liveVoiceText = ""; // Stores text while speaking
+  String _liveVoiceText = ""; 
 
   // --- Data Variables ---
   final _supabase = Supabase.instance.client;
   double _monthlyBudget = 5000.0;
-  // ignore: unused_field
   bool _isLoadingLimit = true;
   late final Stream<List<Map<String, dynamic>>> _transactionsStream;
 
@@ -58,7 +67,7 @@ class _HomepageState extends State<Homepage> {
   }
 
   // ==========================================
-  // 🎙️ FIXED VOICE LOGIC (Toggle Style)
+  // 🎙️ VOICE LOGIC (Toggle Style)
   // ==========================================
   void _toggleVoiceListener() {
     // CASE 1: STOPPING (User clicked to finish)
@@ -162,7 +171,7 @@ class _HomepageState extends State<Homepage> {
     if (user == null) return;
     try {
       final data = await _supabase.from('users_settings').select().eq('user_id', user.id).limit(1);
-      if (data.isNotEmpty) {
+      if (mounted && data.isNotEmpty) {
         setState(() {
           _monthlyBudget = (data[0]['monthly_limit'] as num).toDouble();
           _isLoadingLimit = false;
@@ -216,9 +225,8 @@ class _HomepageState extends State<Homepage> {
   }
 
   void _logout() async {
-    // The StreamBuilder in main.dart will automatically handle navigation
-    // to the login screen when the auth state changes after signing out.
     await _supabase.auth.signOut();
+    // Navigation is handled by main.dart StreamBuilder
   }
 
   void _showEditBudgetDialog() {
@@ -251,8 +259,7 @@ class _HomepageState extends State<Homepage> {
     final service = SmsService();
     final messages = await service.getUnreadPaymentMessages();
     if (messages.isNotEmpty && mounted) {
-       // Existing SMS Dialog Logic here (kept same as before)
-       // ...
+       // Your SMS Dialog Logic (Preserved)
     }
   }
 
@@ -261,22 +268,21 @@ class _HomepageState extends State<Homepage> {
   // ==========================================
   @override
   Widget build(BuildContext context) {
+    // Use Theme brightness to determine dark mode for consistent UI
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
         title: const Text('FinWiz', style: TextStyle(fontWeight: FontWeight.bold)),
         elevation: 0,
-        actions: [
-          IconButton(icon: const Icon(Icons.logout), onPressed: _logout),
-        ],
       ),
+      drawer: _buildDrawer(context),
       body: StreamBuilder(
         stream: _transactionsStream,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
           if (snapshot.hasError) return Center(child: Text('Error: ${snapshot.error}'));
-
-          final isDarkMode = Theme.of(context).brightness == Brightness.dark;
 
           final data = snapshot.data;
           final allTransactions = (data ?? []).map((e) {
@@ -402,7 +408,8 @@ class _HomepageState extends State<Homepage> {
                 alignment: Alignment.centerRight,
                 offScreenOffset: const Offset(1.2, 0),
                 title: "Category Breakdown",
-                child: CategoryPieChart(transactions: allTransactions), 
+                // The CategoryPieChart is designed to manage its own layout and scrolling.
+                child: CategoryPieChart(transactions: allTransactions),
               ),
             ],
           );
@@ -410,21 +417,21 @@ class _HomepageState extends State<Homepage> {
       ),
       
       // ==========================================
-      // 🚀 VERTICAL BUTTON LAYOUT (Mic above +)
+      // 🚀 VERTICAL BUTTON LAYOUT
       // ==========================================
       floatingActionButton: Column(
         mainAxisAlignment: MainAxisAlignment.end,
-        mainAxisSize: MainAxisSize.min, // Wrap content height
+        mainAxisSize: MainAxisSize.min, 
         children: [
           // Voice Button (Smaller)
           FloatingActionButton.small(
             heroTag: "voice_btn",
-            onPressed: _toggleVoiceListener, // Call fixed toggle logic
+            onPressed: _toggleVoiceListener, 
             backgroundColor: _isListening ? Colors.redAccent : Colors.grey[800],
             child: Icon(_isListening ? Icons.stop : Icons.mic, color: Colors.white),
           ),
           
-          const SizedBox(height: 15), // Vertical Gap
+          const SizedBox(height: 15),
           
           // Add Button (Main)
           FloatingActionButton(
@@ -443,6 +450,46 @@ class _HomepageState extends State<Homepage> {
   // ==========================================
   // HELPER WIDGETS
   // ==========================================
+
+  Drawer _buildDrawer(BuildContext context) {
+    final user = _supabase.auth.currentUser;
+    // Use widget.isDark for the toggle switch state
+    final isDark = widget.isDark;
+    final primaryColor = Theme.of(context).primaryColor;
+
+    return Drawer(
+      child: ListView(
+        padding: EdgeInsets.zero,
+        children: [
+          DrawerHeader(
+            decoration: BoxDecoration(color: primaryColor),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Text('FinWiz', style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.white)),
+                const SizedBox(height: 8),
+                if (user != null) Text(user.email ?? '', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.white70)),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+          SwitchListTile(
+            title: const Text('Dark Mode'),
+            value: isDark,
+            onChanged: (value) => widget.toggleTheme(),
+            secondary: Icon(isDark ? Icons.dark_mode_outlined : Icons.light_mode_outlined),
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.logout),
+            title: const Text('Logout'),
+            onTap: _logout,
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildBudgetCard(double spent, double remaining, double percent, Color color) {
     final isDarkMode = Theme.of(context).brightness == Brightness.dark;
