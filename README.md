@@ -61,11 +61,6 @@ Traditional expense trackers add friction. You have to open the app, navigate fo
 ## ⚙️ Installation & Setup
 
 1. **Clone the repo**
-   ```bash
-   git clone [https://github.com/yourusername/finwiz.git](https://github.com/yourusername/finwiz.git)
-   cd finwiz
-   Install Dependencies
-
 Bash
 flutter pub get
 Supabase Configuration
