@@ -55,7 +55,6 @@ class _HomepageState extends State<Homepage> {
 
     // Initialize Services after build
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkForSms();
       _fetchMonthlyLimit();
       _initVoice();
     });
@@ -67,23 +66,39 @@ class _HomepageState extends State<Homepage> {
   }
 
   // ==========================================
-  // 🎙️ VOICE LOGIC (Toggle Style)
+  // 🎙️ VOICE LOGIC (Press & Hold Style)
   // ==========================================
-  void _toggleVoiceListener() {
-    // CASE 1: STOPPING (User clicked to finish)
-    if (_isListening) {
-      _voiceHandler.stopListening();
-      setState(() => _isListening = false);
-      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+  void _startVoiceListener(LongPressStartDetails details) {
+    setState(() => _isListening = true);
+    _liveVoiceText = ""; // Reset
+    _voiceHandler.startListening((text) {
+      if (mounted) {
+        _liveVoiceText = text; // Store the latest result
+      }
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Listening... Release to add transaction."),
+        backgroundColor: Colors.redAccent,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
 
-      if (_liveVoiceText.isEmpty || _liveVoiceText == "Listening...") {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Didn't catch any voice command.")),
-        );
+  void _stopVoiceListener(LongPressEndDetails details) {
+    if (!_isListening) return;
+
+    _voiceHandler.stopListening();
+    setState(() => _isListening = false);
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+    // Wait a moment for the final result to be processed
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (!mounted || _liveVoiceText.isEmpty) {
+        // Don't show a snackbar if nothing was said, it's less intrusive for press-and-hold
         return;
       }
 
-      // Parse & Add
       final command = _voiceHandler.parseCommand(_liveVoiceText);
       
       if (command['amount'] > 0) {
@@ -110,41 +125,7 @@ class _HomepageState extends State<Homepage> {
         );
       }
       _liveVoiceText = ""; // Reset
-
-    } else {
-      // CASE 2: STARTING (User clicked to start)
-      setState(() {
-        _isListening = true;
-        _liveVoiceText = "Listening...";
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Listening... Tap button again to stop."),
-          duration: Duration(days: 1), // Keep open
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-
-      _voiceHandler.startListening((resultText) {
-        if (mounted) {
-          setState(() {
-            _liveVoiceText = resultText;
-          });
-          // Update Feedback
-          ScaffoldMessenger.of(context).hideCurrentSnackBar();
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text("Hearing: '$_liveVoiceText'"),
-              duration: const Duration(days: 1),
-              backgroundColor: Colors.redAccent,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
-      });
-    }
+    });
   }
 
   // --- Logic: Chart Toggling ---
@@ -253,14 +234,6 @@ class _HomepageState extends State<Homepage> {
         ],
       ),
     );
-  }
-
-  Future<void> _checkForSms() async {
-    final service = SmsService();
-    final messages = await service.getUnreadPaymentMessages();
-    if (messages.isNotEmpty && mounted) {
-       // Your SMS Dialog Logic (Preserved)
-    }
   }
 
   // ==========================================
@@ -416,19 +389,21 @@ class _HomepageState extends State<Homepage> {
         },
       ),
       
-      // ==========================================
-      // 🚀 VERTICAL BUTTON LAYOUT
-      // ==========================================
+     
       floatingActionButton: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         mainAxisSize: MainAxisSize.min, 
         children: [
           // Voice Button (Smaller)
-          FloatingActionButton.small(
-            heroTag: "voice_btn",
-            onPressed: _toggleVoiceListener, 
-            backgroundColor: _isListening ? Colors.redAccent : Colors.grey[800],
-            child: Icon(_isListening ? Icons.stop : Icons.mic, color: Colors.white),
+          GestureDetector(
+            onLongPressStart: _startVoiceListener,
+            onLongPressEnd: _stopVoiceListener,
+            child: FloatingActionButton.small(
+              heroTag: "voice_btn",
+              onPressed: null, // Disabled for long press
+              backgroundColor: _isListening ? Colors.redAccent : Colors.grey[800],
+              child: Icon(_isListening ? Icons.mic : Icons.mic_none, color: Colors.white),
+            ),
           ),
           
           const SizedBox(height: 15),
@@ -447,9 +422,7 @@ class _HomepageState extends State<Homepage> {
     );
   }
 
-  // ==========================================
-  // HELPER WIDGETS
-  // ==========================================
+ 
 
   Drawer _buildDrawer(BuildContext context) {
     final user = _supabase.auth.currentUser;

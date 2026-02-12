@@ -20,32 +20,43 @@ class _NewTransactionFormState extends State<NewTransactionForm> {
   final titleController = TextEditingController();
   final amountController = TextEditingController();
   final VoiceHandler _voiceHandler = VoiceHandler();
-bool _isListening = false; // Button ka color badalne ke liye
+  bool _isListening = false;
+  String _voiceText = "";
 
-@override
-
-void _listen() {
-  if (!_isListening) {
-    // Start Listening
+  void _startVoiceRecognition(LongPressStartDetails details) {
     setState(() => _isListening = true);
+    _voiceText = ""; // Reset
     _voiceHandler.startListening((text) {
-      // Jaise hi kuch sunayi de, process karo
-      final data = _voiceHandler.parseCommand(text);
-
-      setState(() {
-        // Form Fields Auto-Fill karo!
-        titleController.text = data['title'];
-        amountController.text = data['amount'] == 0.0 ? '' : data['amount'].toStringAsFixed(0);
-        selectedCategory = data['category'];
-        // _isListening = false; // Auto-stop mat karo, user ko bolne do
-      });
+      if (mounted) {
+        _voiceText = text; // Store the latest result
+      }
     });
-  } else {
-    // Stop Listening
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Listening... Release to finish.")),
+    );
+  }
+
+  void _stopVoiceRecognition(LongPressEndDetails details) {
+    if (!_isListening) return;
+
     _voiceHandler.stopListening();
     setState(() => _isListening = false);
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+    // Wait a moment for the final result to be processed
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (!mounted || _voiceText.isEmpty) return;
+
+      final data = _voiceHandler.parseCommand(_voiceText);
+      if (data['title'].isNotEmpty || data['amount'] > 0) {
+        setState(() {
+          if (data['title'].isNotEmpty) titleController.text = data['title'];
+          if (data['amount'] > 0) amountController.text = data['amount'].toStringAsFixed(0);
+          if (data['category'].isNotEmpty) selectedCategory = data['category'];
+        });
+      }
+    });
   }
-}
 
   @override
   void initState() {
@@ -243,7 +254,8 @@ void _listen() {
                   Align(
                     alignment: Alignment.centerRight,
                     child:GestureDetector(
-                      onTap: _listen,
+                      onLongPressStart: _startVoiceRecognition,
+                      onLongPressEnd: _stopVoiceRecognition,
                       child: CircleAvatar(
                         backgroundColor: _isListening ? Colors.red : Theme.of(context).primaryColor,
                         radius: 24,

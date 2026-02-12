@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:expense_tracker/services/sms_service.dart';
+import 'package:expense_tracker/features/home/pages/new_transaction.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class SmsListener extends StatefulWidget {
   final Widget child;
@@ -14,9 +16,9 @@ class _SmsListenerState extends State<SmsListener> {
   void initState() {
     super.initState();
     // Check for SMS after the widget is built
-    // WidgetsBinding.instance.addPostFrameCallback((_) {
-    //   _checkForSms();
-    // });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkForSms();
+    });
   }
 
   double? _extractAmount(String body) {
@@ -29,78 +31,116 @@ class _SmsListenerState extends State<SmsListener> {
     return null;
   }
 
-  String _extractMerchant(String body) {
-    // Attempt to extract merchant name after 'at', 'to', or 'on'
-    final RegExp regex = RegExp(r'(?:at|to|on)\s+([A-Za-z0-9\s\.]+?)(?:\s+(?:on|from|using|with|for|\.|$))', caseSensitive: false);
-    final match = regex.firstMatch(body);
-    if (match != null) {
-      return match.group(1)!.trim();
-    }
-    return '';
-  }
-
   Future<void> _checkForSms() async {
     final service = SmsService();
     final messages = await service.getUnreadPaymentMessages();
-
+  
     if (messages.isNotEmpty && mounted) {
       showDialog(
         context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('New Transactions Detected'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: messages.length,
-              itemBuilder: (context, index) {
-                final msg = messages[index];
-                final amount = _extractAmount(msg.body ?? '');
-                
-                return ListTile(
-                  leading: Icon(Icons.payment, color: Theme.of(context).primaryColor),
-                  title: Text(msg.sender ?? 'Unknown'),
-                  subtitle: Text(
-                    msg.body ?? '',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12),
+        barrierDismissible: false, // Prevent closing by tapping outside
+        builder: (dialogContext) {
+          return StatefulBuilder(
+            builder: (context, setState) {
+              if (messages.isEmpty) {
+                // Automatically close the dialog when all transactions are handled
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  Navigator.of(dialogContext).pop();
+                });
+                return const SizedBox.shrink(); // Render nothing while closing
+              }
+  
+              return AlertDialog(
+                title: const Text('New Transactions Detected'),
+                content: SizedBox(
+                  width: double.maxFinite,
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: messages.length,
+                    itemBuilder: (context, index) {
+                      final msg = messages[index];
+                      final amount = _extractAmount(msg.body ?? '');
+                      
+                      // A self-contained card for each detected transaction
+                      return Card(
+                        elevation: 2,
+                        margin: const EdgeInsets.symmetric(vertical: 6),
+                        child: Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(Icons.sms, color: Theme.of(context).primaryColor, size: 20),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(msg.sender ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
+                                  ),
+                                  if (amount != null)
+                                    Text('₹${amount.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 16)),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(msg.body ?? '', maxLines: 3, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+                              const SizedBox(height: 4),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: TextButton(
+                                  child: const Text('ADD TRANSACTION'),
+                                  onPressed: () {
+                                    _navigateToAddTransaction(amount: amount);
+                                    // Remove the item and rebuild the dialog's state
+                                    setState(() {
+                                      messages.removeAt(index);
+                                    });
+                                  },
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
                   ),
-                  trailing: amount != null 
-                    ? Text('₹$amount', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green))
-                    : null,
-                  isThreeLine: true,
-                  onTap: () {
-                    Navigator.pop(context);
-                    _navigateToAddTransaction(
-                      amount: amount,
-                      merchant: _extractMerchant(msg.body ?? ''),
-                      sender: msg.sender,
-                    );
-                  },
-                );
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
-            ),
-          ],
-        ),
+                ),
+                actions: [
+                  TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('Close')),
+                ],
+              );
+            },
+          );
+        },
       );
     }
   }
 
-  void _navigateToAddTransaction({double? amount, String? merchant, String? sender}) {
-    
+  void _navigateToAddTransaction({double? amount}) {
+    final supabase = Supabase.instance.client;
+    final user = supabase.auth.currentUser;
+    if (user == null) {
+      return;
+    }
 
-    // Temporary feedback to show it works
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Detected: ₹$amount at ${merchant?.isNotEmpty == true ? merchant : sender}'),
-      ),
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(25.0))),
+      builder: (_) {
+        return NewTransactionForm(
+          (title, txAmount, category, date) async {
+            await supabase.from('transactions').insert({
+              'title': title,
+              'amount': txAmount,
+              'user_id': user.id,
+              'category': category,
+              'created_at': date.toUtc().toIso8601String(),
+            });
+          },
+          initialAmount: amount,
+        );
+      },
     );
   }
 

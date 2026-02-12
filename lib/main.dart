@@ -1,10 +1,12 @@
 // lib/main.dart
 
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:expense_tracker/features/home/pages/homepage.dart';
 import 'package:expense_tracker/features/auth/modern_login_screen.dart';
+import 'package:expense_tracker/services/sms_listener.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -144,7 +146,9 @@ class _MyAppState extends State<MyApp> {
           }
           // If a user session exists, show the homepage.
           if (snapshot.hasData && snapshot.data?.session != null) {
-            return Homepage(toggleTheme: _toggleTheme, isDark: _isDarkMode);
+            return SmsListener(
+              child: Homepage(toggleTheme: _toggleTheme, isDark: _isDarkMode),
+            );
           }
           // Otherwise, show the login screen.
           return const ModernLoginScreen();
@@ -153,7 +157,8 @@ class _MyAppState extends State<MyApp> {
           
       routes: {
         '/login': (context) => const ModernLoginScreen(),
-        '/home': (context) => Homepage(toggleTheme: _toggleTheme, isDark: _isDarkMode),
+        '/home': (context) => SmsListener(
+            child: Homepage(toggleTheme: _toggleTheme, isDark: _isDarkMode)),
       },
     );
   }
